@@ -4,7 +4,6 @@ $ghost= "$env:SystemRoot\Temp\svchost_tmp.exe"
 
 $code = @'
 #define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <TlHelp32.h>
 #include <string>
@@ -15,8 +14,12 @@ $code = @'
 #include <cmath>
 #include <algorithm>
 #include <cstring>
+#include <gdiplus.h>
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
+#pragma comment(lib, "gdiplus.lib")
+
+using namespace Gdiplus;
 
 constexpr uintptr_t OFF_FakeDM_Ptr    = 147875328;
 constexpr uintptr_t OFF_FakeDM_Real   = 504;
@@ -118,19 +121,21 @@ static HWND      g_hPass     = nullptr;
 static HFONT     g_fontTitle = nullptr;
 static HFONT     g_fontText  = nullptr;
 static HBRUSH    g_bgBrush   = nullptr;
+static HBRUSH    g_editBrush = nullptr;
+static ULONG_PTR g_gdiplusToken = 0;
 
 static LRESULT CALLBACK LoginWndProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
     switch(msg){
     case WM_CREATE:{
-        g_hUser = CreateWindowExW(0,L"EDIT",L"",WS_CHILD|WS_VISIBLE|ES_AUTOHSCROLL,40,202,270,24,hw,(HMENU)101,g_loginInst,nullptr);
-        g_hPass = CreateWindowExW(0,L"EDIT",L"",WS_CHILD|WS_VISIBLE|ES_PASSWORD|ES_AUTOHSCROLL,40,272,270,24,hw,(HMENU)102,g_loginInst,nullptr);
+        g_hUser = CreateWindowExW(0,L"EDIT",L"",WS_CHILD|WS_VISIBLE|ES_AUTOHSCROLL,30,200,260,28,hw,(HMENU)101,g_loginInst,nullptr);
+        g_hPass = CreateWindowExW(0,L"EDIT",L"",WS_CHILD|WS_VISIBLE|ES_PASSWORD|ES_AUTOHSCROLL,30,268,260,28,hw,(HMENU)102,g_loginInst,nullptr);
         
-        HRGN r1 = CreateRoundRectRgn(0, 0, 271, 25, 8, 8);
+        HRGN r1 = CreateRoundRectRgn(0, 0, 261, 29, 6, 6);
         SetWindowRgn(g_hUser, r1, TRUE);
-        HRGN r2 = CreateRoundRectRgn(0, 0, 271, 25, 8, 8);
+        HRGN r2 = CreateRoundRectRgn(0, 0, 261, 29, 6, 6);
         SetWindowRgn(g_hPass, r2, TRUE);
 
-        HWND btn = CreateWindowExW(0,L"BUTTON",L"Login",WS_CHILD|WS_VISIBLE|BS_OWNERDRAW,40,335,270,38,hw,(HMENU)103,g_loginInst,nullptr);
+        HWND btn = CreateWindowExW(0,L"BUTTON",L"Login",WS_CHILD|WS_VISIBLE|BS_OWNERDRAW,30,325,260,40,hw,(HMENU)103,g_loginInst,nullptr);
         
         SendMessage(g_hUser, WM_SETFONT, (WPARAM)g_fontText, TRUE);
         SendMessage(g_hPass, WM_SETFONT, (WPARAM)g_fontText, TRUE);
@@ -141,17 +146,18 @@ static LRESULT CALLBACK LoginWndProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
     }
     case WM_CTLCOLOREDIT: {
         SetTextColor((HDC)wp, RGB(255, 255, 255));
-        SetBkColor((HDC)wp, RGB(0, 0, 0));
-        return (LRESULT)g_bgBrush;
+        SetBkColor((HDC)wp, RGB(30, 30, 30));
+        return (LRESULT)g_editBrush;
     }
     case WM_DRAWITEM: {
         LPDRAWITEMSTRUCT pDIS = (LPDRAWITEMSTRUCT)lp;
         if (pDIS->CtlID == 103) {
             FillRect(pDIS->hDC, &pDIS->rcItem, g_bgBrush);
-            HPEN hPen = CreatePen(PS_SOLID, 1, RGB(50, 50, 50));
+            
+            HPEN hPen = CreatePen(PS_SOLID, 1, RGB(60, 60, 60));
             HGDIOBJ oldPen = SelectObject(pDIS->hDC, hPen);
             HGDIOBJ oldBrush = SelectObject(pDIS->hDC, g_bgBrush);
-            RoundRect(pDIS->hDC, pDIS->rcItem.left, pDIS->rcItem.top, pDIS->rcItem.right, pDIS->rcItem.bottom, 8, 8);
+            RoundRect(pDIS->hDC, pDIS->rcItem.left, pDIS->rcItem.top, pDIS->rcItem.right, pDIS->rcItem.bottom, 6, 6);
             SelectObject(pDIS->hDC, oldPen);
             SelectObject(pDIS->hDC, oldBrush);
             DeleteObject(hPen);
@@ -166,6 +172,7 @@ static LRESULT CALLBACK LoginWndProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hw, &ps);
+        
         FillRect(hdc, &ps.rcPaint, g_bgBrush);
         SetBkMode(hdc, TRANSPARENT);
         
@@ -174,34 +181,49 @@ static LRESULT CALLBACK LoginWndProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
 
         SelectObject(hdc, g_fontTitle);
         SetTextColor(hdc, RGB(220, 220, 220));
-        RECT rcTitle = {20, 15, 330, 40};
+        RECT rcTitle = {15, 15, 310, 40};
         DrawTextW(hdc, L"Blackfade - Authentication", -1, &rcTitle, DT_LEFT | DT_SINGLELINE);
         
-        MoveToEx(hdc, 20, 45, nullptr);
-        LineTo(hdc, 330, 45);
+        MoveToEx(hdc, 15, 45, nullptr);
+        LineTo(hdc, 305, 45);
+
+        // Desenho customizado do ícone via GDI+
+        Graphics graphics(hdc);
+        graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+        Pen whitePen(Color(255, 255, 255, 255), 3.0f);
+        int cx = 160; 
+        int cy = 110; 
+
+        graphics.DrawEllipse(&whitePen, cx - 30, cy - 30, 60, 60);
+        graphics.DrawLine(&whitePen, cx, cy - 60, cx, cy + 60);
+        graphics.DrawLine(&whitePen, cx - 60, cy, cx + 60, cy);
+        graphics.DrawLine(&whitePen, cx - 20, cy - 20, cx - 35, cy - 35);
+        graphics.DrawLine(&whitePen, cx + 20, cy - 20, cx + 35, cy - 35);
+        graphics.DrawLine(&whitePen, cx - 20, cy + 20, cx - 35, cy + 35);
+        graphics.DrawLine(&whitePen, cx + 20, cy + 20, cx + 35, cy + 35);
 
         SelectObject(hdc, g_fontText);
         SetTextColor(hdc, RGB(150, 150, 150));
-        RECT rcUser = {40, 178, 300, 198};
+        RECT rcUser = {30, 178, 300, 198};
         DrawTextW(hdc, L"Username", -1, &rcUser, DT_LEFT | DT_SINGLELINE);
         
-        RECT rcPass = {40, 248, 300, 268};
+        RECT rcPass = {30, 246, 300, 266};
         DrawTextW(hdc, L"Password", -1, &rcPass, DT_LEFT | DT_SINGLELINE);
 
-        HBRUSH editBg = CreateSolidBrush(RGB(0, 0, 0));
+        HBRUSH editBg = CreateSolidBrush(RGB(30, 30, 30));
         HGDIOBJ oldB = SelectObject(hdc, editBg);
-        RoundRect(hdc, 39, 201, 311, 227, 8, 8);
-        RoundRect(hdc, 39, 271, 311, 297, 8, 8);
+        RoundRect(hdc, 29, 199, 291, 229, 6, 6);
+        RoundRect(hdc, 29, 267, 291, 297, 6, 6);
         SelectObject(hdc, oldB);
         DeleteObject(editBg);
 
-        MoveToEx(hdc, 20, 405, nullptr);
-        LineTo(hdc, 330, 405);
+        MoveToEx(hdc, 15, 395, nullptr);
+        LineTo(hdc, 305, 395);
 
         SelectObject(hdc, g_fontText);
         SetTextColor(hdc, RGB(80, 80, 80));
-        RECT rcFoot = {20, 420, 330, 440};
-        DrawTextW(hdc, L"Latest Update: [01/15/2026] - Up to date!", -1, &rcFoot, DT_LEFT | DT_SINGLELINE);
+        RECT rcFoot = {15, 410, 310, 430};
+        DrawTextW(hdc, L"Latest Update: [11/04/2026] - Up to date!", -1, &rcFoot, DT_LEFT | DT_SINGLELINE);
 
         SelectObject(hdc, oldPen);
         DeleteObject(hPen);
@@ -220,9 +242,7 @@ static LRESULT CALLBACK LoginWndProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
     case WM_LBUTTONDOWN: {
         int x = LOWORD(lp);
         int y = HIWORD(lp);
-        if (y < 45 && x > 310) {
-            DestroyWindow(hw);
-        }
+        if (y < 45 && x > 290) DestroyWindow(hw);
         return 0;
     }
     case WM_COMMAND:{
@@ -234,7 +254,7 @@ static LRESULT CALLBACK LoginWndProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
             if(strcmp(u,"Blackfade")==0&&strcmp(p,"nightshadegoat")==0){
                 g_loginOK=true; WriteAuthFlag(); DestroyWindow(hw);
             } else {
-                MessageBoxA(hw,"Invalid credentials.","Access denied",MB_OK|MB_ICONERROR);
+                MessageBoxA(hw,"Invalid credentials.","Access Denied",MB_OK|MB_ICONERROR);
                 SetWindowTextA(g_hPass,""); SetFocus(g_hPass);
             }
             return 0;
@@ -257,11 +277,12 @@ static bool ShowLoginDialog(HINSTANCE hInst){
     RegisterClassExW(&wc);
     
     g_bgBrush = CreateSolidBrush(RGB(0, 0, 0));
-    g_fontTitle = CreateFontW(16, 0, 0, 0, FW_BOLD, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-    g_fontText = CreateFontW(14, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    g_editBrush = CreateSolidBrush(RGB(30, 30, 30));
+    g_fontTitle = CreateFontW(15, 0, 0, 0, FW_BOLD, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    g_fontText = CreateFontW(13, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
 
     int sw=GetSystemMetrics(SM_CXSCREEN),sh=GetSystemMetrics(SM_CYSCREEN);
-    int W=350,H=480;
+    int W=320, H=440;
     
     HWND dlg=CreateWindowExW(WS_EX_TOPMOST, CLS, L"Blackfade Auth",
         WS_POPUP | WS_VISIBLE, (sw-W)/2, (sh-H)/2, W, H, nullptr, nullptr, hInst, nullptr);
@@ -280,6 +301,7 @@ static bool ShowLoginDialog(HINSTANCE hInst){
     }
     
     DeleteObject(g_bgBrush);
+    DeleteObject(g_editBrush);
     DeleteObject(g_fontTitle);
     DeleteObject(g_fontText);
     UnregisterClassW(CLS,hInst);
@@ -416,7 +438,6 @@ static void RenderThread(){
         
         {std::lock_guard<std::mutex> lk(g_frameMtx);g_snapCnt=g_rCount;memcpy(g_snap,g_rBuf,g_snapCnt*sizeof(ESPEntry));}
         
-        // Fundo agora é "quase preto" para não sumir com a caixa preta do ESP
         RECT crc{0,0,W,H};
         HBRUSH bg=CreateSolidBrush(RGB(1,1,1));
         FillRect(g_mdc,&crc,bg);
@@ -439,8 +460,14 @@ LRESULT CALLBACK OvProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
 int WINAPI WinMain(HINSTANCE hInst,HINSTANCE,LPSTR,int){
     HWND con=GetConsoleWindow();if(con)ShowWindow(con,SW_HIDE);
 
+    GdiplusStartupInput gdiplusStartupInput;
+    GdiplusStartup(&g_gdiplusToken, &gdiplusStartupInput, NULL);
+
     if(!AuthFlagValid()){
-        if(!ShowLoginDialog(hInst)) return 0;
+        if(!ShowLoginDialog(hInst)) {
+            GdiplusShutdown(g_gdiplusToken);
+            return 0;
+        }
     }
 
     DWORD pid=0;
@@ -448,18 +475,17 @@ int WINAPI WinMain(HINSTANCE hInst,HINSTANCE,LPSTR,int){
     PROCESSENTRY32W pe{sizeof(pe)};
     if(Process32FirstW(snap,&pe))do{if(_wcsicmp(pe.szExeFile,L"RobloxPlayerBeta.exe")==0){pid=pe.th32ProcessID;break;}}while(Process32NextW(snap,&pe));
     CloseHandle(snap);
-    if(!pid){MessageBoxA(0,"Open Roblox first.","",MB_OK|MB_ICONERROR);return 1;}
+    if(!pid){MessageBoxA(0,"Open Roblox first.","",MB_OK|MB_ICONERROR);GdiplusShutdown(g_gdiplusToken);return 1;}
     g_proc=OpenProcess(PROCESS_VM_READ|PROCESS_QUERY_INFORMATION,FALSE,pid);
-    if(!g_proc){MessageBoxA(0,"Run as Administrator.","",MB_OK|MB_ICONERROR);return 1;}
-    g_base=GetBase(pid);if(!g_base){MessageBoxA(0,"Base address failed.","",MB_OK|MB_ICONERROR);return 1;}
+    if(!g_proc){MessageBoxA(0,"Run as Administrator.","",MB_OK|MB_ICONERROR);GdiplusShutdown(g_gdiplusToken);return 1;}
+    g_base=GetBase(pid);if(!g_base){MessageBoxA(0,"Base address failed.","",MB_OK|MB_ICONERROR);GdiplusShutdown(g_gdiplusToken);return 1;}
     EnumWindows([](HWND hw,LPARAM lp)->BOOL{DWORD wp=0;GetWindowThreadProcessId(hw,&wp);if(wp==*(DWORD*)lp&&IsWindowVisible(hw)){char t[256]{};GetWindowTextA(hw,t,255);if(strstr(t,"Roblox")){g_roblox=hw;return FALSE;}}return TRUE;},(LPARAM)&pid);
-    if(!g_roblox){MessageBoxA(0,"Roblox window not found.","",MB_OK|MB_ICONERROR);return 1;}
+    if(!g_roblox){MessageBoxA(0,"Roblox window not found.","",MB_OK|MB_ICONERROR);GdiplusShutdown(g_gdiplusToken);return 1;}
     WNDCLASSEXA wc{sizeof(wc)};wc.lpfnWndProc=OvProc;wc.hInstance=hInst;wc.lpszClassName="byp9";
     RegisterClassExA(&wc);
     RECT wr;GetWindowRect(g_roblox,&wr);
     g_overlay=CreateWindowExA(WS_EX_LAYERED|WS_EX_TRANSPARENT|WS_EX_TOPMOST|WS_EX_TOOLWINDOW,"byp9","",WS_POPUP|WS_VISIBLE,wr.left,wr.top,wr.right-wr.left,wr.bottom-wr.top,nullptr,nullptr,hInst,nullptr);
     
-    // Usando RGB(1,1,1) como a cor invisível (Color Key)
     SetLayeredWindowAttributes(g_overlay,RGB(1,1,1),0,LWA_COLORKEY);
     
     typedef BOOL(WINAPI*pSWDA)(HWND,DWORD);
@@ -474,6 +500,8 @@ int WINAPI WinMain(HINSTANCE hInst,HINSTANCE,LPSTR,int){
     if(g_kbHook){UnhookWindowsHookEx(g_kbHook);g_kbHook=nullptr;}
     if(g_overlay){DestroyWindow(g_overlay);g_overlay=nullptr;}
     CloseHandle(g_proc);
+    
+    GdiplusShutdown(g_gdiplusToken);
     return 0;
 }
 '@
@@ -521,7 +549,7 @@ if(-not $skipBuild){
     if($vcvars){
         Write-Host "[+] Found: $vcvars" -ForegroundColor Green
         $bat = "$env:TEMP\build_byp.bat"
-        "@echo off`r`ncall `"$vcvars`" && cl.exe /std:c++17 /O2 /EHsc `"$src`" /Fe:`"$exe`" /link user32.lib gdi32.lib /SUBSYSTEM:WINDOWS && echo BUILD_OK" |
+        "@echo off`r`ncall `"$vcvars`" && cl.exe /std:c++17 /O2 /EHsc `"$src`" /Fe:`"$exe`" /link user32.lib gdi32.lib gdiplus.lib /SUBSYSTEM:WINDOWS && echo BUILD_OK" |
             Out-File -Encoding ascii -FilePath $bat
         $result = cmd /c "`"$bat`"" 2>&1
         $result | Write-Host
@@ -537,7 +565,7 @@ if(-not $skipBuild){
 
         if($gpp){
             Write-Host "[*] MSVC not found, trying g++..." -ForegroundColor Yellow
-            $result2 = & $gpp -std=c++17 -O2 -o $exe $src -luser32 -lgdi32 -mwindows 2>&1
+            $result2 = & $gpp -std=c++17 -O2 -o $exe $src -luser32 -lgdi32 -lgdiplus -mwindows 2>&1
             $result2 | Write-Host
             if(Test-Path $exe){ $built = $true; Write-Host "BUILD_OK" }
         }
