@@ -21,28 +21,30 @@ $code = @'
 
 using namespace Gdiplus;
 
-constexpr uintptr_t OFF_FakeDM_Ptr    = 147875328;
-constexpr uintptr_t OFF_FakeDM_Real   = 504;
-constexpr uintptr_t OFF_VE_Ptr        = 142189080;
-constexpr uintptr_t OFF_VE_VM         = 432;
-constexpr uintptr_t OFF_VE_Dims       = 2832;
-constexpr uintptr_t OFF_DM_WS         = 328;
-constexpr uintptr_t OFF_WS_Cam        = 1184;
-constexpr uintptr_t OFF_Inst_NameCont = 104;
-constexpr uintptr_t OFF_Inst_Name     = 0;
-constexpr uintptr_t OFF_Inst_Children = 112;
-constexpr uintptr_t OFF_Inst_ClassDesc= 24;
-constexpr uintptr_t OFF_Inst_ClassName= 8;
-constexpr uintptr_t OFF_Str_Len       = 16;
-constexpr uintptr_t OFF_Pl_LP         = 280;
-constexpr uintptr_t OFF_Pl_Model      = 672;
-constexpr uintptr_t OFF_Pl_Name       = 288;
-constexpr uintptr_t OFF_Pl_TeamColor  = 952;
-constexpr uintptr_t OFF_Model_Primary = 576;
-constexpr uintptr_t OFF_Hum_HP        = 388;
-constexpr uintptr_t OFF_Hum_MaxHP     = 412;
-constexpr uintptr_t OFF_BP_Prim       = 376;
-constexpr uintptr_t OFF_Prim_Pos      = 212;
+// ── Offsets ── Dumped: 18:23 04/11/2026 ─────────────────────────────────────
+constexpr uintptr_t OFF_FakeDM_Ptr    = 149645664;  // FakeDataModel::Pointer
+constexpr uintptr_t OFF_FakeDM_Real   = 504;         // FakeDataModel::RealDataModel
+constexpr uintptr_t OFF_VE_Ptr        = 143928888;  // VisualEngine::Pointer
+constexpr uintptr_t OFF_VE_VM         = 432;         // VisualEngine::ViewMatrix
+constexpr uintptr_t OFF_VE_Dims       = 2832;        // VisualEngine::Dimensions
+constexpr uintptr_t OFF_DM_WS         = 328;         // DataModel::Workspace
+constexpr uintptr_t OFF_WS_Cam        = 1184;        // Workspace::CurrentCamera
+constexpr uintptr_t OFF_Inst_NameCont = 104;         // Instance::NameContainer
+constexpr uintptr_t OFF_Inst_Name     = 0;           // Instance::Name
+constexpr uintptr_t OFF_Inst_Children = 112;         // Instance::ChildrenStart
+constexpr uintptr_t OFF_Inst_ClassDesc= 24;          // Instance::ClassDescriptor
+constexpr uintptr_t OFF_Inst_ClassName= 8;           // Instance::ClassName
+constexpr uintptr_t OFF_Str_Len       = 16;          // Misc::StringLength
+constexpr uintptr_t OFF_Pl_LP         = 280;         // Player::LocalPlayer
+constexpr uintptr_t OFF_Pl_Model      = 672;         // Player::ModelInstance
+constexpr uintptr_t OFF_Pl_Name       = 288;         // Player::DisplayName
+constexpr uintptr_t OFF_Pl_TeamColor  = 952;         // Player::TeamColor
+constexpr uintptr_t OFF_Model_Primary = 576;         // Model::PrimaryPart
+constexpr uintptr_t OFF_Hum_HP        = 388;         // Humanoid::Health
+constexpr uintptr_t OFF_Hum_MaxHP     = 412;         // Humanoid::MaxHealth
+constexpr uintptr_t OFF_BP_Prim       = 376;         // BasePart::Primitive
+constexpr uintptr_t OFF_Prim_Pos      = 212;         // Primitive::Position
+// ─────────────────────────────────────────────────────────────────────────────
 
 constexpr float MAX_DIST    = 1000.f;
 constexpr int   MAX_PLAYERS = 100;
